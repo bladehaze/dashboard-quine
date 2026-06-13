@@ -1,7 +1,8 @@
 import { ReactNode } from 'react';
 import ReactGridLayout from 'react-grid-layout';
+import { ChartWidget, ChartConfig } from './components/ChartWidget';
+import { TableWidget } from './components/TableWidget';
 
-// Basic mock types for Phase 1
 export interface LayoutItem {
   i: string;
   x: number;
@@ -19,7 +20,7 @@ export interface Widget {
   type: 'chart' | 'table';
   layout: LayoutItem;
   query: string;
-  config: Record<string, any>;
+  config: ChartConfig | Record<string, any>;
 }
 
 interface CoreRendererProps {
@@ -31,6 +32,15 @@ const GridLayout = ReactGridLayout as any;
 
 export function CoreRenderer({ widgets, mockData }: CoreRendererProps): ReactNode {
   const layouts = widgets.map((w) => w.layout);
+
+  const renderWidgetContent = (widget: Widget, data: any[]) => {
+    if (widget.type === 'chart') {
+      return <ChartWidget data={data} config={widget.config as ChartConfig} />;
+    } else if (widget.type === 'table') {
+      return <TableWidget data={data} />;
+    }
+    return null;
+  };
 
   return (
     <div style={{ background: '#f5f5f5', minHeight: '100vh', padding: '20px' }}>
@@ -63,13 +73,14 @@ export function CoreRenderer({ widgets, mockData }: CoreRendererProps): ReactNod
                   padding: '5px 10px',
                   cursor: 'grab',
                   borderBottom: '1px solid #ccc',
-                  fontWeight: 'bold'
+                  fontWeight: 'bold',
+                  fontSize: '14px'
                 }}
               >
                 {widget.id} ({widget.type})
               </div>
-              <div style={{ padding: '10px', flex: 1, overflow: 'auto' }}>
-                <pre style={{ fontSize: '10px' }}>{JSON.stringify(data, null, 2)}</pre>
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                {renderWidgetContent(widget, data)}
               </div>
             </div>
           );

@@ -9,6 +9,22 @@ function App() {
   const [widgets, setWidgets] = useState<Widget[]>([]);
   const [widgetData, setWidgetData] = useState<Record<string, any[]>>({});
   const [showModal, setShowModal] = useState(false);
+  const [fileHandle, setFileHandle] = useState<any>(null);
+
+  // Rehydrate state on boot
+  useEffect(() => {
+    try {
+      const stateScript = document.getElementById('dashboard-state');
+      if (stateScript && stateScript.textContent) {
+        const loadedWidgets = JSON.parse(stateScript.textContent);
+        if (Array.isArray(loadedWidgets) && loadedWidgets.length > 0) {
+          setWidgets(loadedWidgets);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse initial dashboard state", e);
+    }
+  }, []);
 
   // Re-run queries for all widgets when db or widgets change
   useEffect(() => {
@@ -22,7 +38,7 @@ function App() {
         console.error(`Failed to load data for widget ${widget.id}`, e);
       }
     });
-  }, [widgets, workerState.isReady]); // We'd ideally also depend on the databases changing, but keeping it simple
+  }, [widgets, workerState.isReady]);
 
   const handleAddWidget = (widget: Widget) => {
     setWidgets([...widgets, widget]);
@@ -48,6 +64,51 @@ function App() {
     });
   };
 
+  const handleSaveQuine = async () => {
+    try {
+      // 1. Mutate the DOM's script tag with current state
+      const stateScript = document.getElementById('dashboard-state');
+      if (stateScript) {
+        stateScript.textContent = JSON.stringify(widgets);
+      }
+
+      // 2. Serialize the entire HTML document
+      const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+      // 3. Try File System Access API
+      if ('showSaveFilePicker' in window) {
+        let handle = fileHandle;
+        if (!handle) {
+          handle = await (window as any).showSaveFilePicker({
+            suggestedName: 'dashboard.html',
+            types: [{
+              description: 'HTML Document',
+              accept: { 'text/html': ['.html'] },
+            }],
+          });
+          setFileHandle(handle);
+        }
+        const writable = await handle.createWritable();
+        await writable.write(htmlContent);
+        await writable.close();
+        alert('Workspace saved successfully!');
+      } else {
+        // 4. Fallback Blob download
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'dashboard.html';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        alert('Failed to save: ' + err.message);
+      }
+    }
+  };
+
   return (
     <div style={{ fontFamily: 'sans-serif', margin: 0, padding: 0 }}>
       <header style={{ background: '#2c3e50', color: 'white', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -58,6 +119,13 @@ function App() {
             style={{ padding: '8px 16px', background: '#3498db', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
           >
             + Add Panel
+          </button>
+          <button 
+            onClick={handleSaveQuine}
+            style={{ padding: '8px 16px', background: '#27ae60', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            title="Save workspace as a continuous HTML file"
+          >
+            💾 Save Workspace
           </button>
           <div style={{ fontSize: '14px', background: workerState.isReady ? '#27ae60' : '#e67e22', padding: '4px 8px', borderRadius: '4px' }}>
             Engine: {workerState.isReady ? 'Online' : 'Booting...'}

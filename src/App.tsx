@@ -106,24 +106,19 @@ function App() {
   };
 
   const handleExportSnapshot = () => {
-    // Phase 5.1: Export Snapshot HTML
-    // We clone the current document
     const clone = document.documentElement.cloneNode(true) as HTMLElement;
     
-    // We need to inject the STATIC data so the worker isn't needed
     const dataScript = document.createElement('script');
     dataScript.id = 'dashboard-static-data';
     dataScript.type = 'application/json';
     dataScript.textContent = JSON.stringify(widgetData);
     clone.querySelector('head')?.appendChild(dataScript);
     
-    // Ensure the widgets config is up to date
     const stateScript = clone.querySelector('#dashboard-state');
     if (stateScript) {
       stateScript.textContent = JSON.stringify(widgets);
     }
     
-    // Add a flag so the boot script knows to mount in "Read-Only" mode
     const modeScript = document.createElement('script');
     modeScript.textContent = 'window.__DASHBOARD_READONLY__ = true;';
     clone.querySelector('head')?.appendChild(modeScript);
@@ -140,18 +135,15 @@ function App() {
   };
 
   const handleExportCLI = () => {
-    // Phase 5.2: Export CLI Node.js Script
-    // This script will use the 'better-sqlite3' package to run the queries,
-    // inject the results into the HTML Quine, and write the new HTML file.
-    
     const stateScript = document.getElementById('dashboard-state');
     const widgetsJson = stateScript ? stateScript.textContent : '[]';
     
-    // Grab the exact HTML shell we are currently running, stripped of dynamic data
     const clone = document.documentElement.cloneNode(true) as HTMLElement;
     const cleanState = clone.querySelector('#dashboard-state');
     if (cleanState) cleanState.textContent = '[]';
-    const htmlTemplate = '<!DOCTYPE html>\\n' + clone.outerHTML.replace(/`/g, '\\`').replace(/\$/g, '\\$');
+    
+    // Create base64 of HTML instead of string literal to avoid escaping bugs with complex bundles
+    const htmlB64 = btoa(encodeURIComponent('<!DOCTYPE html>\n' + clone.outerHTML));
 
     const cliScript = `
 const fs = require('fs');
@@ -172,20 +164,16 @@ for (let i = 0; i < argv.length; i++) {
   }
 }
 
-const widgets = JSON.parse(\`${widgetsJson}\`);
+const widgets = JSON.parse(decodeURIComponent(atob("${btoa(encodeURIComponent(widgetsJson || '[]'))}")));
 const widgetData = {};
 
 if (Object.keys(dbPaths).length > 0) {
-  // Use the first DB as the main connection, attach others
   const mainAlias = Object.keys(dbPaths)[0];
   const db = new Database(dbPaths[mainAlias], { readonly: true });
   
   for (const [alias, path] of Object.entries(dbPaths)) {
     if (alias !== mainAlias) {
       db.exec(\`ATTACH DATABASE '\${path}' AS \${alias}\`);
-    } else {
-      // Create an alias for main db to match sql.js behavior if needed
-      // SQLite doesn't let you alias main easily, so queries should ideally not prefix main
     }
   }
 
@@ -201,15 +189,13 @@ if (Object.keys(dbPaths).length > 0) {
   db.close();
 }
 
-let htmlTemplate = \`${htmlTemplate}\`;
+let htmlTemplate = decodeURIComponent(atob("${htmlB64}"));
 
-// Inject the widgets configuration
 htmlTemplate = htmlTemplate.replace(
   '<script id="dashboard-state" type="application/json">[]</script>',
   \`<script id="dashboard-state" type="application/json">\${JSON.stringify(widgets)}</script>\`
 );
 
-// Inject the static data and Read-Only mode flag
 const injection = \`
 <script id="dashboard-static-data" type="application/json">\${JSON.stringify(widgetData)}</script>
 <script>window.__DASHBOARD_READONLY__ = true;</script>

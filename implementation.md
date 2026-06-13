@@ -1,12 +1,14 @@
 # Implementation Plan: SQLite Dashboard Builder
 
-This document breaks down the V5 Architecture Design into smaller, verifiable, and strictly sequential implementation phases. Each phase represents a testable milestone.
+This document breaks down the Architecture Design into smaller, verifiable, and strictly sequential implementation phases. Each phase represents a testable milestone.
 
 ## Phase 1: Foundation & Shared Renderer
-**Goal:** Scaffold the app and establish the DRY rendering core.
-- [ ] **1.1 Project Setup:** Initialize a Vite + React + TypeScript project. Install `vite-plugin-singlefile`, `echarts`, and `react-grid-layout`.
-- [ ] **1.2 The Shared Core (`core-renderer.ts`):** Create the framework-agnostic rendering module. It should take a mock `Widget[]` array and mock SQL data arrays to render a static grid and basic charts.
-- [ ] **1.3 Build Pipeline Configuration:** Configure Vite so that `core-renderer.ts` is compiled into a minified string (`renderer.min.js`) available as a constant to the rest of the app, verifying the single-file output (`builder.html`) works offline.
+**Goal:** Scaffold the app and establish the DRY rendering core with extensible visualization.
+- [ ] **1.1 Project Setup:** Initialize a Vite + React + TypeScript project. Install `vite-plugin-singlefile`, `react-grid-layout`, a powerful table library (e.g., `@tanstack/react-table`), and the default charting library (e.g., `echarts`).
+- [ ] **1.2 Charting Adapter Pattern:** Design an interface/adapter layer in the renderer so the underlying charting library (ECharts, Chart.js, Plotly) can be easily swapped out without rewriting widget logic.
+- [ ] **1.3 Advanced Table Widget:** Implement a data table renderer that natively supports client-side filtering by column values and regex matching.
+- [ ] **1.4 The Shared Core (`core-renderer.ts`):** Create the framework-agnostic rendering module connecting the adapters. It should take a mock `Widget[]` array and mock SQL data arrays to render the grid, charts, and tables.
+- [ ] **1.5 Build Pipeline Configuration:** Configure Vite so that `core-renderer.ts` is compiled into a minified string (`renderer.min.js`) available as a constant to the rest of the app, verifying the single-file output (`builder.html`) works offline.
 
 ## Phase 2: Database Engine (`sql.js`) Integration
 **Goal:** Enable secure, offline, cross-database querying via Web Workers.
@@ -20,7 +22,7 @@ This document breaks down the V5 Architecture Design into smaller, verifiable, a
 - [ ] **3.1 Grid Canvas:** Implement `react-grid-layout` using the mock widgets from Phase 1. Ensure widgets can be resized and dragged.
 - [ ] **3.2 Query Authoring Modal:** Integrate a basic code editor (e.g., Monaco Editor) for typing SQL.
 - [ ] **3.3 Live Preview Wiring:** Connect the modal's SQL editor to the Phase 2 Web Worker. Show a live preview of the data table below the editor.
-- [ ] **3.4 Data Mapping UI:** Add dropdowns in the modal to map the returned SQL columns to ECharts X/Y axes, saving the configuration to the `Widget` state.
+- [ ] **3.4 Data Mapping UI:** Add dropdowns in the modal to map the returned SQL columns to the visualization adapter's configuration (axes, table columns), saving the config to the `Widget` state.
 
 ## Phase 4: Persistence Mechanism 1 (The Quine)
 **Goal:** Enable the app to mutate itself and save progress continuously.
@@ -36,6 +38,6 @@ This document breaks down the V5 Architecture Design into smaller, verifiable, a
 
 ## Phase 6: Testing & Hardening
 **Goal:** Ensure long-term reliability and verify the Quine logic.
-- [ ] **6.1 Unit Tests:** Write Vitest coverage for `core-renderer.ts` and the state serialization functions.
-- [ ] **6.2 E2E Playwright Tests:** Automate a workflow that drops a mock DB, creates a chart, triggers the Quine save, loads the resulting HTML, and verifies the chart exists.
+- [ ] **6.1 Unit Tests:** Write Vitest coverage for `core-renderer.ts`, the charting adapters, and the state serialization functions.
+- [ ] **6.2 E2E Playwright Tests:** Automate a workflow that drops a mock DB, creates a chart/table, triggers the Quine save, loads the resulting HTML, and verifies the widget exists and functions.
 - [ ] **6.3 CLI Verification:** Write an automated script to execute the exported `update_dashboard.py` against dummy DBs and verify the output HTML matches expectations.

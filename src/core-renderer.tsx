@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import ReactGridLayout from 'react-grid-layout';
+import GridLayout from 'react-grid-layout';
 import { ChartWidget, ChartConfig } from './components/ChartWidget';
 import { TableWidget } from './components/TableWidget';
 
@@ -26,11 +26,13 @@ export interface Widget {
 interface CoreRendererProps {
   widgets: Widget[];
   mockData: Record<string, any[]>;
+  onLayoutChange?: (layout: LayoutItem[]) => void;
+  onRemoveWidget?: (id: string) => void;
 }
 
-const GridLayout = ReactGridLayout as any;
+const ResponsiveGridLayout = GridLayout as any;
 
-export function CoreRenderer({ widgets, mockData }: CoreRendererProps): ReactNode {
+export function CoreRenderer({ widgets, mockData, onLayoutChange, onRemoveWidget }: CoreRendererProps): ReactNode {
   const layouts = widgets.map((w) => w.layout);
 
   const renderWidgetContent = (widget: Widget, data: any[]) => {
@@ -42,15 +44,25 @@ export function CoreRenderer({ widgets, mockData }: CoreRendererProps): ReactNod
     return null;
   };
 
+  if (widgets.length === 0) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center', color: '#7f8c8d' }}>
+        <h3>No widgets yet</h3>
+        <p>Drop a SQLite file above, then click "+ Add Panel" to build your dashboard.</p>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ background: '#f5f5f5', minHeight: '100vh', padding: '20px' }}>
-      <GridLayout
+    <div style={{ background: '#f5f5f5', minHeight: 'calc(100vh - 200px)', padding: '20px' }}>
+      <ResponsiveGridLayout
         className="layout"
         layout={layouts}
         cols={12}
         rowHeight={30}
         width={1200}
         draggableHandle=".drag-handle"
+        onLayoutChange={onLayoutChange}
       >
         {widgets.map((widget) => {
           const data = mockData[widget.id] || [];
@@ -74,10 +86,21 @@ export function CoreRenderer({ widgets, mockData }: CoreRendererProps): ReactNod
                   cursor: 'grab',
                   borderBottom: '1px solid #ccc',
                   fontWeight: 'bold',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
                 }}
               >
-                {widget.id} ({widget.type})
+                <span>{widget.type.toUpperCase()}</span>
+                {onRemoveWidget && (
+                  <button 
+                    onClick={() => onRemoveWidget(widget.id)}
+                    style={{ background: 'transparent', border: 'none', color: '#c0392b', cursor: 'pointer', fontWeight: 'bold' }}
+                  >
+                    X
+                  </button>
+                )}
               </div>
               <div style={{ flex: 1, overflow: 'hidden' }}>
                 {renderWidgetContent(widget, data)}
@@ -85,7 +108,7 @@ export function CoreRenderer({ widgets, mockData }: CoreRendererProps): ReactNod
             </div>
           );
         })}
-      </GridLayout>
+      </ResponsiveGridLayout>
     </div>
   );
 }
